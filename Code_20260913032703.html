@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>箱中酒馆 · 卡牌工坊</title>
+<style>
+  :root{
+    --bg:#15110d; --panel:#221a13; --panel2:#2e2318; --line:#44341f;
+    --txt:#f2ead3; --sub:#b6a684; --accent:#c89b4a; --accent2:#7a5c2e;
+    --hp:#d05a4a; --ex:#5a93c0; --ok:#4a9e6f; --warn:#e0b04a;
+    --tavern:#8a6f3a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% 0%,#241a10,#120e08 70%);color:var(--txt);font-size:14px;line-height:1.5;}
+  header{position:sticky;top:0;z-index:20;background:rgba(21,17,13,.94);backdrop-filter:blur(8px);
+    border-bottom:2px solid var(--accent2);padding:12px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  header h1{font-size:17px;margin:0 auto 0 0;font-weight:800;letter-spacing:1px;
+    background:linear-gradient(90deg,#e8c877,#c89b4a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  header .sub{font-size:10px;color:var(--sub);letter-spacing:2px;}
+  .tabs{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;}
+  .tab{flex:0 0 auto;padding:9px 16px;border-radius:999px;background:var(--panel);border:1px solid var(--line);
+    color:var(--sub);font-weight:700;cursor:pointer;white-space:nowrap;}
+  .tab.active{background:var(--accent);color:#2a1d08;border-color:var(--accent);}
+  .page{padding:12px;display:none;}
+  .page.active{display:block;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;
+    box-shadow:0 4px 14px rgba(0,0,0,.3);}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--accent);font-weight:700;letter-spacing:.5px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:4px;}
+  .field input,.field textarea,.field select{width:100%;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);padding:9px 10px;font-size:14px;font-family:inherit;}
+  .field textarea{resize:vertical;min-height:56px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .skill-block{border:1px dashed var(--accent2);border-radius:10px;padding:10px;margin-top:8px;background:var(--panel2);}
+  .skill-block .skill-title{font-size:12px;color:var(--accent);font-weight:700;margin-bottom:6px;}
+  .skill-block .skill-title .num{color:var(--warn);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:9px 14px;border-radius:10px;
+    border:none;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn-primary{background:linear-gradient(180deg,#d8a84f,#b8893a);color:#2a1d08;}
+  .btn-ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line);}
+  .btn-danger{background:transparent;color:var(--hp);border:1px solid var(--hp);}
+  .btn-small{padding:5px 10px;font-size:12px;border-radius:8px;}
+  .btn-tiny{padding:3px 8px;font-size:11px;border-radius:6px;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .btn-row .btn{flex:1;min-width:90px;}
+  /* 子技能缩进 */
+  .subskill-wrap{margin-top:8px;padding-left:12px;border-left:3px solid var(--accent);}
+  .subskill-item{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px;background:var(--panel);position:relative;}
+  .subskill-item .tag{font-size:10px;color:var(--warn);font-weight:700;margin-bottom:4px;}
+  .add-sub-btn{width:100%;margin-top:6px;border-style:dashed;}
+  .extra-skill-block{border:1px dashed var(--ok);border-radius:10px;padding:10px;margin-top:8px;background:var(--panel2);}
+  .extra-skill-block .skill-title{color:var(--ok);}
+  /* 充能 */
+  .energy-row{align-items:end;}
+  .hidden{display:none;}
+  /* 角色卡预览 */
+  .preview-wrap{display:flex;justify-content:center;padding:6px 0 14px;}
+  .char-card{width:100%;max-width:340px;background:linear-gradient(160deg,#2c2114,#1a130c);
+    border:2px solid var(--accent2);border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+  .cc-top{padding:10px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .cc-name{font-size:18px;font-weight:800;}
+  .cc-id{font-size:11px;color:var(--sub);}
+  .cc-element{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--accent2);color:#f0dfae;}
+  .cc-img{width:100%;aspect-ratio:16/9;background:#120e08;display:flex;align-items:center;justify-content:center;
+    color:var(--sub);font-size:12px;overflow:hidden;}
+  .cc-img img{width:100%;height:100%;object-fit:cover;}
+  .cc-stats{display:flex;gap:8px;padding:8px 12px;}
+  .stat{flex:1;background:var(--panel2);border-radius:10px;padding:6px 8px;text-align:center;}
+  .stat .lbl{font-size:10px;color:var(--sub);}
+  .stat .val{font-size:17px;font-weight:800;}
+  .stat.hp .val{color:var(--hp);}
+  .stat.ex .val{color:var(--ex);}
+  .cc-desc{padding:0 12px 8px;font-size:12px;color:#ddd2b5;}
+  .cc-skills{padding:0 12px 12px;display:flex;flex-direction:column;gap:6px;}
+  .sk{border-left:3px solid var(--accent);background:var(--panel2);border-radius:0 8px 8px 0;padding:6px 9px;}
+  .sk .sk-head{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+  .sk .sk-name{font-size:12px;font-weight:700;}
+  .sk .sk-cost{font-size:11px;color:var(--warn);white-space:nowrap;}
+  .sk .sk-type{font-size:10px;color:var(--accent);}
+  .sk .sk-text{font-size:11px;color:#c2b896;margin-top:2px;}
+  .sk.sub{margin-left:14px;border-left-color:var(--warn);}
+  .sk.sub .sk-name{color:#f0dfae;}
+  .sk .sk-tag{font-size:9px;color:var(--warn);margin-right:4px;}
+  /* 手牌 */
+  .hand-card{width:100%;max-width:300px;background:linear-gradient(160deg,#2a2014,#1a130c);
+    border:1px solid var(--accent2);border-radius:14px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,.4);}
+  .hc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .hc-name{font-size:16px;font-weight:800;}
+  .hc-type{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent2);color:#f0dfae;}
+  .hc-line{display:flex;gap:10px;font-size:12px;color:var(--sub);margin-bottom:6px;flex-wrap:wrap;}
+  .hc-line b{color:var(--txt);}
+  .hc-rarity{color:var(--warn);letter-spacing:1px;}
+  .hc-desc{font-size:12px;color:#ddd2b5;background:rgba(255,255,255,.04);border-radius:8px;padding:8px;}
+  .list-item{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+    margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .list-item .li-info{flex:1;min-width:0;}
+  .list-item .li-title{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .list-item .li-sub{font-size:11px;color:var(--sub);}
+  .empty{text-align:center;color:var(--sub);padding:30px 10px;font-size:13px;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#3a2c18;color:#fff;
+    padding:10px 18px;border-radius:999px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.4);opacity:0;
+    transition:opacity .2s;pointer-events:none;z-index:99;border:1px solid var(--accent2);}
+  .toast.show{opacity:1;}
+  .img-tip{font-size:11px;color:var(--sub);margin-top:4px;line-height:1.4;}
+  .energy-note{font-size:11px;color:var(--warn);margin-top:4px;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🍷 箱中酒馆 · 卡牌工坊</h1>
+    <div class="sub">TAVERN IN THE BOX · CARD FORGE</div>
+  </div>
+  <button class="btn btn-ghost btn-small" id="exportBtn">导出</button>
+  <button class="btn btn-ghost btn-small" id="importBtn">导入</button>
+  <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-page="char">角色卡</div>
+  <div class="tab" data-page="hand">手牌（技能卡）</div>
+</div>
+
+<!-- ============ 角色卡 ============ -->
+<div class="page active" id="page-char">
+  <div class="card">
+    <h2>编辑角色卡</h2>
+    <input type="hidden" id="charEditingId" value="">
+    <div class="field">
+      <label>卡图（选本地图会转成离线可用，但会占存储，尽量用 200KB 以内小图）</label>
+      <input type="file" accept="image/*" onchange="onCharImg(event)" id="charImgInput">
+      <input type="text" id="c_imgurl" placeholder="或粘贴图片链接" style="margin-top:6px" oninput="renderCharPreview()">
+      <div class="img-tip" id="imgTip"></div>
+    </div>
+    <div class="grid3">
+      <div class="field" style="grid-column:1/3"><label>名称</label><input type="text" id="c_name" oninput="renderCharPreview()"></div>
+      <div class="field"><label>编号</label><input type="text" id="c_id" placeholder="如 001" oninput="renderCharPreview()"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>元素</label>
+        <select id="c_element" onchange="renderCharPreview()"></select>
+      </div>
+      <div class="field"><label>HP</label><input type="number" id="c_hp" value="100" oninput="renderCharPreview()"></div>
+      <div class="field"><label>能量类型</label>
+        <select id="c_energyType" onchange="onEnergyTypeChange()">
+          <option value="ex">EX（默认）</option>
+          <option value="custom">特殊充能</option>
+        </select>
+      </div>
+    </div>
+    <!-- EX / 特殊充能 切换区 -->
+    <div class="grid3" id="exRow">
+      <div class="field"><label>EX 值</label><input type="number" id="c_ex" value="0" oninput="renderCharPreview()"></div>
+    </div>
+    <div class="grid3 hidden" id="customEnergyRow">
+      <div class="field"><label>充能名称</label><input type="text" id="c_energyName" placeholder="如：怒气 / 灵力 / 符文" oninput="renderCharPreview()"></div>
+      <div class="field"><label>充能上限</label><input type="number" id="c_energyMax" value="100" oninput="renderCharPreview()"></div>
+      <div class="field"><label>初始值</label><input type="number" id="c_energyStart" value="0" oninput="renderCharPreview()"></div>
+    </div>
+    <div class="energy-note" id="energyNote"></div>
+    <div class="field"><label>角色描述</label><textarea id="c_desc" oninput="renderCharPreview()"></textarea></div>
+
+    <h2 style="margin-top:14px">技能</h2>
+    <div id="skillsContainer"></div>
+    <button class="btn btn-ghost" id="addExtraSkillBtn" style="width:100%;border-style:dashed;margin-top:8px;">＋ 添加额外技能（四技能 / 五技能…）</button>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveCharBtn">💾 保存角色卡</button>
+      <button class="btn btn-ghost" id="newCharBtn">＋ 新建</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>预览</h2>
+    <div class="preview-wrap" id="charPreview"></div>
+  </div>
+
+  <h2 style="padding:0 2px">已保存的角色卡（<span id="charCount">0</span>）</h2>
+  <div id="charList"></div>
+</div>
+
+<!-- ============ 手牌 ============ -->
+<div class="page" id="page-hand">
+  <div class="card">
+    <h2>编辑手牌（技能卡）</h2>
+    <input type="hidden" id="handEditingId" value="">
+    <div class="field"><label>手牌名称</label><input type="text" id="h_name" oninput="renderHandPreview()"></div>
+    <div class="grid3">
+      <div class="field"><label>类型</label>
+        <select id="h_type" onchange="renderHandPreview()">
+          <option value="">选择</option>
+          <option>攻击</option><option>防御</option><option>辅助</option>
+          <option>反应</option><option>装备</option><option>事件</option>
+        </select>
+      </div>
+      <div class="field"><label>花费</label><input type="number" id="h_cost" value="0" oninput="renderHandPreview()"></div>
+      <div class="field"><label>稀有度</label>
+        <select id="h_rarity" onchange="renderHandPreview()">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>携带上限（1-4）</label><input type="number" id="h_limit" min="1" max="4" value="2" oninput="renderHandPreview()"></div>
+    <div class="field"><label>效果描述</label><textarea id="h_desc" oninput="renderHandPreview()"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveHandBtn">💾 保存手牌</button>
+      <button class="btn btn-ghost" id="newHandBtn">＋ 新建</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>预览</h2>
+    <div class="preview-wrap" id="handPreview"></div>
+  </div>
+
+  <h2 style="padding:0 2px">已保存的手牌（<span id="handCount">0</span>）</h2>
+  <div id="handList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 元素列表（12种） ============
+const ELEMENTS = ['水','火','冰','雷','光','暗','生灵','分子','奥术','物理','风','时间'];
+
+// 技能槽固定顺序：普攻/被动/一/二/大招 + 可扩展的额外技能
+const FIXED_SLOTS = ['atk','passive','s1','s2','s3'];
+const SLOT_TITLE = { atk:'普通攻击', passive:'被动', s1:'一技能', s2:'二技能', s3:'三技能 / 大招' };
+const SLOT_TYPE  = { atk:'普攻', passive:'被动', s1:'技能', s2:'技能', s3:'大招' };
+
+// ============ 数据存储 ============
+const STORE_KEY = 'tavern_card_data_v3';
+let data = { characters: [], hands: [] };
+let _storageOK = true;
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ const d = JSON.parse(raw); if(d && Array.isArray(d.characters) && Array.isArray(d.hands)) data = d; }
+    _storageOK = true;
+  }catch(e){ console.warn('读取失败', e); _storageOK = false; }
+}
+function persist(){
+  if(!_storageOK) return false;
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    return true;
+  }catch(e){
+    _storageOK = false;
+    console.warn('存储失败（可能是 base64 图片太大超出配额）', e);
+    return false;
+  }
+}
+
+// ============ 工具 ============
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'),2000);
+}
+function esc(s){ s = s == null ? '' : String(s); return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function stars(n){ n=Math.max(1,Math.min(5,+n||1)); return '★'.repeat(n)+'☆'.repeat(5-n); }
+
+// 图片转 base64
+function onCharImg(e){
+  const file = e.target.files[0]; const tip = document.getElementById('imgTip');
+  if(!file) return;
+  if(file.size > 500*1024){ tip.textContent = '⚠️ 图片超过 500KB，保存可能失败。建议先压缩或用图片链接。'; }
+  else tip.textContent = '';
+  const reader = new FileReader();
+  reader.onload = ()=>{ document.getElementById('c_imgurl').value = reader.result; renderCharPreview(); };
+  reader.readAsDataURL(file);
+}
+
+// 填充元素下拉框
+(function initElements(){
+  const sel = document.getElementById('c_element');
+  ELEMENTS.forEach(el=>{
+    const o = document.createElement('option'); o.value = el; o.textContent = el; sel.appendChild(o);
+  });
+})();
+
+// Tab 切换
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('page-'+t.dataset.page).classList.add('active');
+  };
+});
+
+// ============ 技能数据模型 ============
+// skills: { atk:{name,cost,desc}, passive:{...}, s1:{...}, s2:{...}, s3:{...},
+//           extra:[{name,cost,desc}],          // 额外技能（四/五技能…）
+//           subskills:{ s2:[{name,cost,desc}], s3:[...] } }   // 子技能（挂在某个槽下）
+function defaultSkills(){
+  const sk = {};
+  FIXED_SLOTS.forEach(k=>{ sk[k] = { name:'', cost:'', desc:'' }; });
+  sk.extra = [];
+  sk.subskills = {};
+  return sk;
+}
+
+// ============ 能量类型切换 ============
+function onEnergyTypeChange(){
+  const type = document.getElementById('c_energyType').value;
+  const exRow = document.getElementById('exRow');
+  const cusRow = document.getElementById('customEnergyRow');
+  const note = document.getElementById('energyNote');
+  if(type === 'custom'){
+    exRow.classList.add('hidden');
+    cusRow.classList.remove('hidden');
+    note.textContent = '已选择「特殊充能」：可自定义充能名称，预览与导出会按此名称显示。';
+  }else{
+    exRow.classList.remove('hidden');
+    cusRow.classList.add('hidden');
+    note.textContent = '';
+  }
+  renderCharPreview();
+}
+
+// ============ 技能编辑器（动态渲染） ============
+// 读取当前编辑状态：从 DOM 中按 slot key 收集
+function readSkillsFromDOM(){
+  const sk = defaultSkills();
+  FIXED_SLOTS.forEach(k=>{
+    sk[k] = {
+      name: document.getElementById('sk_'+k+'_name').value.trim(),
+      cost: document.getElementById('sk_'+k+'_cost').value.trim(),
+      desc: document.getElementById('sk_'+k+'_desc').value.trim(),
+    };
+  });
+  // 额外技能（按 DOM 中的 .extra-skill-block 顺序）
+  sk.extra = [...document.querySelectorAll('#extraSkillsContainer .extra-skill-block')].map((el,i)=>({
+    name: el.querySelector('.es-name').value.trim(),
+    cost: el.querySelector('.es-cost').value.trim(),
+    desc: el.querySelector('.es-desc').value.trim(),
+  }));
+  // 子技能（按 slot key，每项下 .sub-name/.sub-cost/.sub-desc）
+  const sub = {};
+  FIXED_SLOTS.forEach(k=>{
+    const wrap = document.getElementById('sub_'+k+'_container');
+    if(!wrap) return;
+    const items = [...wrap.querySelectorAll('.subskill-item')].map(it=>({
+      name: it.querySelector('.sub-name').value.trim(),
+      cost: it.querySelector('.sub-cost').value.trim(),
+      desc: it.querySelector('.sub-desc').value.trim(),
+    })).filter(x=>x.name || x.cost || x.desc);
+    if(items.length) sub[k] = items;
+  });
+  if(Object.keys(sub).length) sk.subskills = sub;
+  return sk;
+}
+
+// 渲染编辑器表单（首次 & 编辑回填时调用）
+function renderSkillsEditor(sk){
+  sk = sk || defaultSkills();
+  const container = document.getElementById('skillsContainer');
+  container.innerHTML = '';
+
+  FIXED_SLOTS.forEach((k, idx)=>{
+    const block = document.createElement('div');
+    block.className = 'skill-block';
+    block.innerHTML = `
+      <div class="skill-title"><span class="num">#${idx+1}</span> ${SLOT_TITLE[k]}</div>
+      <div class="grid3">
+        <div class="field" style="grid-column:1/3"><label>名称</label><input type="text" id="sk_${k}_name" value="${esc(sk[k].name||'')}" oninput="renderCharPreview()"></div>
+        <div class="field"><label>花费</label><input type="number" id="sk_${k}_cost" value="${esc(sk[k].cost||'')}" placeholder="0" oninput="renderCharPreview()"></div>
+      </div>
+      <div class="field"><label>描述</label><textarea id="sk_${k}_desc" oninput="renderCharPreview()">${esc(sk[k].desc||'')}</textarea></div>
+      <div class="subskill-wrap" id="sub_${k}_container"></div>
+      <button type="button" class="btn btn-ghost btn-tiny add-sub-btn" data-slot="${k}">＋ 添加子技能（强化 ${SLOT_TITLE[k]}…）</button>
+    `;
+    container.appendChild(block);
+  });
+
+  // 额外技能容器
+  const extraWrap = document.createElement('div');
+  extraWrap.id = 'extraSkillsContainer';
+  container.appendChild(extraWrap);
+
+  // 渲染子技能
+  const sub = sk.subskills || {};
+  FIXED_SLOTS.forEach(k=>{
+    const wrap = document.getElementById('sub_'+k+'_container');
+    (sub[k] || []).forEach(item=> addSubSkillDOM(k, item));
+  });
+  // 渲染额外技能
+  (sk.extra || []).forEach(item=> addExtraSkillDOM(item));
+
+  // 绑定子技能按钮
+  container.querySelectorAll('.add-sub-btn').forEach(btn=>{
+    btn.onclick = ()=>{ addSubSkillDOM(btn.dataset.slot, null); renderCharPreview(); };
+  });
+}
+
+function addSubSkillDOM(slot, item){
+  item = item || {name:'',cost:'',desc:''};
+  const wrap = document.getElementById('sub_'+slot+'_container');
+  const div = document.createElement('div');
+  div.className = 'subskill-item';
+  div.innerHTML = `
+    <div class="tag">↳ 子技能（强化 ${SLOT_TITLE[slot]}）</div>
+    <div class="grid3">
+      <div class="field" style="grid-column:1/3"><label>名称（如：强化${SLOT_TITLE[slot]}）</label><input type="text" class="sub-name" value="${esc(item.name||'')}" oninput="renderCharPreview()"></div>
+      <div class="field"><label>花费</label><input type="number" class="sub-cost" value="${esc(item.cost||'')}" placeholder="0" oninput="renderCharPreview()"></div>
+    </div>
+    <div class="field"><label>描述</label><textarea class="sub-desc" oninput="renderCharPreview()">${esc(item.desc||'')}</textarea></div>
+    <button type="button" class="btn btn-danger btn-tiny" onclick="this.closest('.subskill-item').remove();renderCharPreview();">删除此子技能</button>
+  `;
+  wrap.appendChild(div);
+  div.querySelector('.btn-danger').addEventListener('click', ()=>{
+    div.remove(); renumberExtras(); renderCharPreview();
+  });
+}
+
+function addExtraSkillDOM(item){
+  item = item || {name:'',cost:'',desc:''};
+  const container = document.getElementById('extraSkillsContainer');
+  const num = container.children.length + 4; // 四技能起
+  const div = document.createElement('div');
+  div.className = 'extra-skill-block';
+  div.innerHTML = `
+    <div class="skill-title"><span class="num">#${num}</span> 额外技能（${num==4?'四技能':num==5?'五技能':'第'+num+'技能'}）</div>
+    <div class="grid3">
+      <div class="field" style="grid-column:1/3"><label>名称</label><input type="text" class="es-name" value="${esc(item.name||'')}" oninput="renderCharPreview()"></div>
+      <div class="field"><label>花费</label><input type="number" class="es-cost" value="${esc(item.cost||'')}" placeholder="0" oninput="renderCharPreview()"></div>
+    </div>
+    <div class="field"><label>描述</label><textarea class="es-desc" oninput="renderCharPreview()">${esc(item.desc||'')}</textarea></div>
+    <button type="button" class="btn btn-danger btn-tiny js-del-extra">删除此额外技能</button>
+  `;
+  container.appendChild(div);
+  div.querySelector('.js-del-extra').addEventListener('click', ()=>{
+    div.remove(); renumberExtras(); renderCharPreview();
+  });
+}
+function renumberExtras(){
+  const container = document.getElementById('extraSkillsContainer');
+  [...container.children].forEach((el,i)=>{
+    const num = i+4;
+    el.querySelector('.skill-title').innerHTML = `<span class="num">#${num}</span> 额外技能（${num==4?'四技能':num==5?'五技能':'第'+num+'技能'}）`;
+  });
+}
+
+// ============ 角色卡：读写表单 ============
+function readCharForm(){
+  const energyType = document.getElementById('c_energyType').value;
+  const card = {
+    imgurl:   document.getElementById('c_imgurl').value.trim(),
+    name:     document.getElementById('c_name').value.trim(),
+    id:       document.getElementById('c_id').value.trim(),
+    element:  document.getElementById('c_element').value,
+    hp:       document.getElementById('c_hp').value,
+    desc:     document.getElementById('c_desc').value.trim(),
+    energyType: energyType,
+    ex:        (energyType==='ex') ? (document.getElementById('c_ex').value||'0') : '',
+    energyName: (energyType==='custom') ? document.getElementById('c_energyName').value.trim() : '',
+    energyMax:  (energyType==='custom') ? document.getElementById('c_energyMax').value : '',
+    energyStart:(energyType==='custom') ? document.getElementById('c_energyStart').value : '',
+    skills:   readSkillsFromDOM(),
+  };
+  return card;
+}
+
+function fillCharForm(c){
+  c = c || {};
+  document.getElementById('charEditingId').value = c._id || '';
+  document.getElementById('c_imgurl').value = c.imgurl || '';
+  document.getElementById('c_name').value = c.name || '';
+  document.getElementById('c_id').value = c.id || '';
+  document.getElementById('c_element').value = c.element || '水';
+  document.getElementById('c_hp').value = (c.hp != null && c.hp !== '') ? c.hp : 100;
+  document.getElementById('c_desc').value = c.desc || '';
+  // 能量类型（兼容旧数据：有 energyName 则视为特殊充能）
+  const eType = c.energyType || (c.energyName ? 'custom' : 'ex');
+  document.getElementById('c_energyType').value = eType;
+  document.getElementById('c_ex').value = (c.ex != null && c.ex !== '') ? c.ex : 0;
+  document.getElementById('c_energyName').value = c.energyName || '';
+  document.getElementById('c_energyMax').value = c.energyMax || 100;
+  document.getElementById('c_energyStart').value = c.energyStart || 0;
+  onEnergyTypeChange();
+  // 技能（含迁移：把旧版扁平字段转成新模型）
+  const skills = migrateSkills(c);
+  renderSkillsEditor(skills);
+  document.getElementById('imgTip').textContent = '';
+  renderCharPreview();
+}
+
+// 旧数据迁移：兼容 atk_name 扁平结构 & 无 extra/subskills 的情况
+function migrateSkills(c){
+  const sk = defaultSkills();
+  if(!c) return sk;
+  // 新模型
+  if(c.skills && typeof c.skills === 'object' && !c.skills.atk_name && !c.atk_name){
+    Object.assign(sk, c.skills);
+    return sk;
+  }
+  // 旧模型：扁平字段 atk_name / s1_name ...
+  const map = { atk:'atk', passive:'passive', s1:'s1', s2:'s2', s3:'s3' };
+  FIXED_SLOTS.forEach(k=>{
+    sk[k] = {
+      name: c[k+'_name'] || c.skills?.[k]?.name || '',
+      cost: c.skills?.[k]?.cost || '',
+      desc: c[k+'_desc'] || c.skills?.[k]?.desc || '',
+    };
+  });
+  return sk;
+}
+
+function newChar(){ fillCharForm({}); toast('已清空，可新建角色卡'); }
+function getCharEditingId(){ return document.getElementById('charEditingId').value; }
+
+// ============ 保存 ============
+function saveChar(){
+  const c = readCharForm();
+  if(!c.name){ toast('请填写角色名称'); return; }
+  if(c.imgurl && c.imgurl.length > 2*1024*1024){
+    if(!confirm('卡图较大（>' + (c.imgurl.length/1024/1024).toFixed(1) + 'MB），保存可能失败。仍要尝试吗？')) return;
+  }
+  const editingId = getCharEditingId();
+  try{
+    const card = Object.assign({}, c, { _id: editingId || uid() });
+    if(editingId){
+      const idx = data.characters.findIndex(x=>x._id===editingId);
+      if(idx > -1) data.characters[idx] = card;
+      else data.characters.push(card);
+    }else{
+      data.characters.push(card);
+    }
+    document.getElementById('charEditingId').value = card._id;
+    if(!persist()){
+      toast('⚠️ 浏览器存不下！多为图片太大。请点「导出」备份，或换用图片链接。数据本次可用。');
+    }else{
+      toast('✅ 角色卡已保存');
+    }
+    renderCharList();
+  }catch(err){
+    console.error(err);
+    toast('❌ 保存出错：' + (err && err.message ? err.message : '未知'));
+  }
+}
+
+// ============ 预览 ============
+function skillLine(name, cost, desc, opts){
+  opts = opts || {};
+  if(!name && !desc) return '';
+  const tag = opts.tag ? `<span class="sk-tag">${esc(opts.tag)}</span>` : '';
+  const costHtml = cost ? `<span class="sk-cost">花费 ${esc(cost)}</span>` : '';
+  return `
+    <div class="sk${opts.sub?' sub':''}">
+      <div class="sk-head">
+        <div class="sk-name">${tag}${esc(name)||'（未命名）'}</div>
+        ${costHtml}
+      </div>
+      <div class="sk-text">${esc(desc)||'（无描述）'}</div>
+    </div>`;
+}
+
+function renderCharPreview(){
+  const c = readCharForm();
+  const img = c.imgurl
+    ? `<img src="${esc(c.imgurl)}" onerror="this.parentElement.textContent='图片加载失败'">`
+    : `点击上方选择或粘贴卡图`;
+
+  // 能量区
+  let energyHtml = '';
+  if(c.energyType === 'custom' && c.energyName){
+    const parts = [`${esc(c.energyName)}`];
+    if(c.energyMax) parts.push(`上限 ${esc(c.energyMax)}`);
+    if(c.energyStart) parts.push(`初始 ${esc(c.energyStart)}`);
+    energyHtml = `<div class="stat ex"><div class="lbl">${esc(c.energyName)}</div><div class="val">${esc(c.energyMax||'—')}</div></div>`;
+  }else{
+    energyHtml = `<div class="stat ex"><div class="lbl">EX</div><div class="val">${esc(c.ex||0)}</div></div>`;
+  }
+
+  // 技能列表：固定槽 + 子技能 + 额外技能
+  const sk = c.skills || defaultSkills();
+  let skillsHtml = '';
+  FIXED_SLOTS.forEach(k=>{
+    skillsHtml += skillLine(sk[k].name, sk[k].cost, sk[k].desc, { type: SLOT_TYPE[k] });
+    (sk.subskills && sk.subskills[k] || []).forEach(sub=>{
+      skillsHtml += skillLine(sub.name, sub.cost, sub.desc, { sub:true, tag:'↳ 强化 '+SLOT_TITLE[k] });
+    });
+  });
+  (sk.extra || []).forEach((ex, i)=>{
+    const num = i+4;
+    skillsHtml += skillLine(ex.name, ex.cost, ex.desc, { type: num===4?'四技能':num===5?'五技能':'技能'+num });
+  });
+
+  document.getElementById('charPreview').innerHTML = `
+    <div class="char-card">
+      <div class="cc-top">
+        <div><div class="cc-name">${esc(c.name)||'角色名'}</div>
+          <div class="cc-id">${esc(c.id)||'编号'}</div></div>
+        <div class="cc-element">${esc(c.element)||'元素'}</div>
+      </div>
+      <div class="cc-img">${img}</div>
+      <div class="cc-stats">
+        <div class="stat hp"><div class="lbl">HP</div><div class="val">${esc(c.hp||0)}</div></div>
+        ${energyHtml}
+      </div>
+      <div class="cc-desc">${esc(c.desc)||'角色描述……'}</div>
+      <div class="cc-skills">${skillsHtml}</div>
+    </div>`;
+}
+
+function renderCharList(){
+  document.getElementById('charCount').textContent = data.characters.length;
+  const box = document.getElementById('charList');
+  if(!data.characters.length){ box.innerHTML = '<div class="empty">还没有角色卡，快去新建一张吧</div>'; return; }
+  box.innerHTML = data.characters.map(c=>{
+    const sk = c.skills || {};
+    const skillCount = FIXED_SLOTS.filter(k=>sk[k] && (sk[k].name || sk[k].desc)).length
+      + (sk.extra ? sk.extra.length : 0)
+      + (sk.subskills ? Object.values(sk.subskills).reduce((a,b)=>a+b.length,0) : 0);
+    const energyLabel = c.energyType==='custom' && c.energyName ? esc(c.energyName) : 'EX';
+    return `
+    <div class="list-item" data-id="${esc(c._id)}">
+      <div class="li-info">
+        <div class="li-title">${esc(c.name)} <span style="color:var(--sub);font-weight:400;font-size:11px">${esc(c.id||'')}</span></div>
+        <div class="li-sub">${esc(c.element||'')} · HP ${esc(c.hp||0)} · ${energyLabel} · 技能 ${skillCount}</div>
+      </div>
+      <button class="btn btn-ghost btn-small" data-action="edit-char">编辑</button>
+      <button class="btn btn-danger btn-small" data-action="del-char">删除</button>
+    </div>`;
+  }).join('');
+}
+function editChar(id){
+  const c = data.characters.find(x=>x._id===id);
+  if(!c) return;
+  fillCharForm(c);
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('正在编辑：'+c.name);
+}
+function delChar(id){
+  let ok = true;
+  try { ok = window.confirm ? window.confirm('确定删除这张角色卡？') : true; } catch(e){ ok = true; }
+  if(!ok) return;
+  data.characters = data.characters.filter(x=>x._id!==id);
+  persist(); renderCharList();
+  if(getCharEditingId()===id){ fillCharForm({}); }
+}
+document.getElementById('charList').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-action]');
+  if(!btn) return;
+  const item = btn.closest('.list-item');
+  const id = item && item.dataset.id;
+  if(!id) return;
+  if(btn.dataset.action === 'edit-char') editChar(id);
+  else if(btn.dataset.action === 'del-char') delChar(id);
+});
+
+// ================= 手牌 =================
+function readHandForm(){
+  return {
+    name:  document.getElementById('h_name').value.trim(),
+    type:  document.getElementById('h_type').value,
+    cost:  document.getElementById('h_cost').value,
+    rarity:document.getElementById('h_rarity').value,
+    limit: document.getElementById('h_limit').value,
+    desc:  document.getElementById('h_desc').value.trim(),
+  };
+}
+function fillHandForm(h){
+  h = h || {};
+  document.getElementById('handEditingId').value = h._id || '';
+  document.getElementById('h_name').value = h.name || '';
+  document.getElementById('h_type').value = h.type || '';
+  document.getElementById('h_cost').value = (h.cost != null && h.cost !== '') ? h.cost : 0;
+  document.getElementById('h_rarity').value = h.rarity || 3;
+  document.getElementById('h_limit').value = h.limit || 2;
+  document.getElementById('h_desc').value = h.desc || '';
+  renderHandPreview();
+}
+function newHand(){ fillHandForm({}); toast('已清空，可新建手牌'); }
+
+function saveHand(){
+  const h = readHandForm();
+  if(!h.name){ toast('请填写手牌名称'); return; }
+  const editingId = document.getElementById('handEditingId').value;
+  const card = Object.assign({}, h, { _id: editingId || uid() });
+  try{
+    if(editingId){
+      const idx = data.hands.findIndex(x=>x._id===editingId);
+      if(idx > -1) data.hands[idx] = card;
+      else data.hands.push(card);
+    }else{
+      data.hands.push(card);
+    }
+    document.getElementById('handEditingId').value = card._id;
+    if(!persist()){ toast('⚠️ 存储可能受限，建议导出备份。'); }
+    else toast('✅ 手牌已保存');
+    renderHandList();
+  }catch(err){
+    console.error(err);
+    toast('❌ 保存出错：' + (err && err.message ? err.message : '未知'));
+  }
+}
+
+function renderHandPreview(){
+  const h = readHandForm();
+  document.getElementById('handPreview').innerHTML = `
+    <div class="hand-card">
+      <div class="hc-head">
+        <div class="hc-name">${esc(h.name)||'手牌名称'}</div>
+        <div class="hc-type">${esc(h.type)||'类型'}</div>
+      </div>
+      <div class="hc-line"><span>花费 <b>${esc(h.cost||0)}</b></span>
+        <span>稀有度 <span class="hc-rarity">${stars(h.rarity)}</span></span>
+        <span>上限 <b>${esc(Math.max(1,Math.min(4,+h.limit||1)))}</b></span></div>
+      <div class="hc-desc">${esc(h.desc)||'效果描述……'}</div>
+    </div>`;
+}
+
+function renderHandList(){
+  document.getElementById('handCount').textContent = data.hands.length;
+  const box = document.getElementById('handList');
+  if(!data.hands.length){ box.innerHTML = '<div class="empty">还没有手牌，快去新建一张吧</div>'; return; }
+  box.innerHTML = data.hands.map(h=>`
+    <div class="list-item" data-id="${esc(h._id)}">
+      <div class="li-info">
+        <div class="li-title">${esc(h.name)}</div>
+        <div class="li-sub">${esc(h.type||'')} · 花费 ${esc(h.cost||0)} · ${stars(h.rarity)} · 上限 ${esc(h.limit||2)}</div>
+      </div>
+      <button class="btn btn-ghost btn-small" data-action="edit-hand">编辑</button>
+      <button class="btn btn-danger btn-small" data-action="del-hand">删除</button>
+    </div>`).join('');
+}
+function editHand(id){
+  const h = data.hands.find(x=>x._id===id);
+  if(!h) return;
+  fillHandForm(h);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function delHand(id){
+  let ok = true;
+  try { ok = window.confirm ? window.confirm('确定删除这张手牌？') : true; } catch(e){ ok = true; }
+  if(!ok) return;
+  data.hands = data.hands.filter(x=>x._id!==id);
+  persist(); renderHandList();
+  if(document.getElementById('handEditingId').value===id){ fillHandForm({}); }
+}
+document.getElementById('handList').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-action]');
+  if(!btn) return;
+  const item = btn.closest('.list-item');
+  const id = item && item.dataset.id;
+  if(!id) return;
+  if(btn.dataset.action === 'edit-hand') editHand(id);
+  else if(btn.dataset.action === 'del-hand') delHand(id);
+});
+
+// ================= 导入 / 导出 =================
+function exportData(){
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '箱中酒馆_卡牌数据_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('已导出 JSON');
+}
+function importData(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const d = JSON.parse(reader.result);
+      if(!Array.isArray(d.characters) || !Array.isArray(d.hands)) throw new Error('格式不对');
+      data = d; persist(); renderAll(); toast('导入成功');
+    }catch(err){ toast('导入失败：文件格式错误'); console.error(err); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function renderAll(){ renderCharPreview(); renderCharList(); renderHandPreview(); renderHandList(); }
+
+// 暴露到 window，方便外部调用（调试 / 自动化测试）
+window.renderCharPreview = renderCharPreview;
+window.onEnergyTypeChange = onEnergyTypeChange;
+
+// ============ 启动 ============
+load();
+renderSkillsEditor(defaultSkills());
+onEnergyTypeChange();
+renderAll();
+document.getElementById('saveCharBtn').onclick = saveChar;
+document.getElementById('saveHandBtn').onclick = saveHand;
+document.getElementById('addExtraSkillBtn').onclick = ()=>{ addExtraSkillDOM(null); renderCharPreview(); };
+document.getElementById('newCharBtn').onclick = newChar;
+document.getElementById('newHandBtn').onclick = newHand;
+document.getElementById('exportBtn').onclick = exportData;
+document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
+</script>
+</body>
+</html>
