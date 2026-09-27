@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>C# IDE</title>
+<meta name="theme-color" content="#12131a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="C# IDE">
+<meta name="description" content="手机上的 C# 编译运行器">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2312131a'/%3E%3Ctext x='32' y='43' font-size='32' font-family='monospace' font-weight='bold' fill='%23e94560' text-anchor='middle'%3EC%23%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2312131a'/%3E%3Ctext x='32' y='43' font-size='32' font-family='monospace' font-weight='bold' fill='%23e94560' text-anchor='middle'%3EC%23%3C/text%3E%3C/svg%3E">
+<style>
+  :root{ --bg:#12131a; --panel:#1c1e28; --line:#2c2f3a; --fg:#e6e6f0; --acc:#e94560; --ok:#4ec9a5; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"WenQuanYi Micro Hei",sans-serif; }
+  header{ padding:calc(6px + env(safe-area-inset-top)) 8px 6px; background:var(--panel); border-bottom:1px solid var(--line);
+    display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+  header button, .side button{ background:#2b2e3a; color:var(--fg); border:1px solid var(--line);
+    border-radius:8px; padding:6px 9px; font-size:13px; }
+  header button.run{ background:var(--acc); border-color:var(--acc); font-weight:600; }
+  header button.on{ background:#39405280; border-color:var(--acc); }
+  .spacer{ flex:1; }
+  #wrap{ position:relative; display:flex; height:calc(100% - 44px); overflow:hidden; }
+
+  /* 左侧抽屉：默认收起 */
+  .side{ position:absolute; left:0; top:0; bottom:0; width:150px; z-index:30;
+    background:var(--panel); border-right:1px solid var(--line); padding:8px; overflow:auto;
+    transform:translateX(-100%); transition:transform .18s ease; }
+  .side.open{ transform:translateX(0); box-shadow:2px 0 12px #0008; }
+  #mask{ position:absolute; inset:0; background:#0006; z-index:20; display:none; }
+  #mask.on{ display:block; }
+  .side h4{ margin:4px 0 6px; font-size:12px; color:#9aa; font-weight:600; }
+  .file{ padding:6px; font-size:12px; border-radius:6px; cursor:pointer; }
+  .file:hover{ background:#2b2e3a; }
+  .file.active{ background:var(--acc); color:#fff; }
+
+  main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  #editorHost{ flex:1; min-height:80px; position:relative; overflow:hidden; }
+  #monaco{ position:absolute; inset:0; }
+  /* 回退编辑器：高亮层 + 透明 textarea */
+  #hl,#codeArea{ position:absolute; inset:0; margin:0; padding:10px; border:0;
+    font:13px/1.55 Menlo,Consolas,"WenQuanYi Micro Hei",monospace;
+    white-space:pre-wrap; word-break:break-word; overflow:auto; }
+  #hl{ z-index:1; color:#cfd3e0; pointer-events:none; }
+  #codeArea{ z-index:2; background:transparent; color:transparent; caret-color:#fff;
+    outline:none; resize:none; display:none; }
+  #hl .eline{ background:#e9456033; text-decoration:underline wavy #e94560 1px; }
+  #hl .wline{ background:#e0a83a33; text-decoration:underline wavy #e0a83a 1px; }
+
+  /* 底部：默认只露 tab 条 */
+  #tabs{ display:flex; background:var(--panel); border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom); }
+  #tabs div{ padding:7px 12px; font-size:12px; cursor:pointer; border-right:1px solid var(--line); color:#9aa; }
+  #tabs div.on{ background:var(--bg); color:var(--acc); font-weight:600; }
+  #panes{ height:0; overflow:hidden; background:#0d0e14; border-top:1px solid var(--line);
+    transition:height .18s ease; }
+  #panes.open{ height:200px; overflow:auto; }
+  .pane{ display:none; padding:8px; }
+  .pane.on{ display:block; }
+  #console div{ font-size:12px; font-family:Menlo,monospace; white-space:pre-wrap; padding:1px 0; }
+  #console .err{ color:#ff6b6b; }
+  #console .ext{ color:var(--ok); }
+  #screen{ background:#fff; max-width:100%; height:auto; border-radius:6px; }
+  .hint{ font-size:11px; color:#889; padding:4px 2px; }
+
+  /* 诊断状态条 */
+  #diagBar{ display:flex; align-items:center; gap:6px; padding:3px 8px; font-size:11px;
+    background:#171922; border-top:1px solid var(--line); color:#9aa; cursor:pointer; }
+  #diagBar .bad{ color:#ff6b6b; } #diagBar .warn{ color:#e0a83a; } #diagBar .good{ color:var(--ok); }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="run" onclick="run()">▶ 运行</button>
+  <button id="btnSide" onclick="toggleSide()">📁 文件</button>
+  <button id="btnPane" onclick="togglePane('console')">🖥 控制台</button>
+  <button onclick="clearConsole()">清屏</button>
+  <span class="spacer"></span>
+  <button onclick="newFile()">新建</button>
+  <button onclick="saveFile()">保存</button>
+  <button onclick="delFile()">删除</button>
+  <button onclick="installGuide()">📲 装桌面</button>
+</header>
+
+<div id="wrap">
+  <div id="mask" onclick="toggleSide(false)"></div>
+
+  <div class="side" id="side">
+    <h4>虚拟文件</h4>
+    <div id="fileList"></div>
+    <h4>已装扩展</h4>
+    <div class="hint" id="extHint"></div>
+  </div>
+
+  <main>
+    <div id="editorHost">
+      <div id="monaco"></div>
+      <div id="hl"></div>
+      <textarea id="codeArea" spellcheck="false"></textarea>
+    </div>
+
+    <div id="diagBar" onclick="toggleDiag()">
+      <span id="diagText">诊断：等待输入</span><span class="spacer" style="flex:1"></span><span id="diagTip">点击展开 ▾</span>
+    </div>
+    <div id="diagList" style="display:none;max-height:110px;overflow:auto;background:#0d0e14;border-top:1px solid var(--line);padding:6px 8px;font-size:11px;font-family:Menlo,monospace"></div>
+
+    <div id="tabs">
+      <div id="tabConsole" class="on" onclick="togglePane('console')">控制台</div>
+      <div id="tabGfx" onclick="togglePane('gfx')">图形</div>
+      <div id="tabFiles" onclick="togglePane('files')">文件</div>
+    </div>
+
+    <div id="panes">
+      <div id="console" class="pane on"></div>
+      <div id="gfxPane" class="pane">
+        <canvas id="screen" width="360" height="420"></canvas>
+        <div class="hint">代码里用 Canvas.Clear / FillCircle / DrawText / SavePng 等绘图。</div>
+      </div>
+      <div id="filesPane" class="pane">
+        <div class="hint" id="fsHint"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+<script>
+"use strict";
+
+/* ================= 默认代码 ================= */
+const DEFAULT_CODE = `using System;
+using Mini.Graphics;
+using Newtonsoft.Json;
+
+class Program {
+  static void Main() {
+    Console.WriteLine("Hello 鸿蒙 C# IDE");
+
+    File.WriteAllText("demo.txt", "虚拟文件读写 OK");
+    Console.WriteLine(File.ReadAllText("demo.txt"));
+
+    var obj = new { name = "phone", ok = true };
+    Console.WriteLine(JsonConvert.SerializeObject(obj));
+
+    Canvas.Clear("#1a1a2e");
+    Canvas.FillCircle(120, 110, 60, "#e94560");
+    Canvas.DrawText("Canvas 渲染", 60, 210, "#ffffff");
+    Canvas.FillRect(40, 240, 120, 20, "#4ec9a5");
+  }
+}`;
+
+/* ================= 虚拟文件系统 ================= */
+let FS = (function(){
+  try{ return JSON.parse(localStorage.getItem("cs_ide_files") || "{}"); }catch(e){ return {}; }
+})();
+function fsSave(){ try{ localStorage.setItem("cs_ide_files", JSON.stringify(FS)); }catch(e){} renderFiles(); }
+const __fs = {
+  write(p,t){ FS[p] = String(t); fsSave(); },
+  read(p){ if(!(p in FS)) throw new Error("文件不存在: " + p); return FS[p]; },
+  exists(p){ return p in FS; },
+  remove(p){ delete FS[p]; fsSave(); },
+  mkdir(){}, list(){ return Object.keys(FS); }
+};
+
+/* ================= 绘图 ================= */
+const cv = document.getElementById("screen");
+const ctx = cv.getContext("2d");
+const __gfx = {
+  Clear(c){ ctx.fillStyle=c||"#fff"; ctx.fillRect(0,0,cv.width,cv.height); },
+  DrawCircle(x,y,r,c){ ctx.beginPath(); ctx.strokeStyle=c||"#000"; ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); },
+  FillCircle(x,y,r,c){ ctx.beginPath(); ctx.fillStyle=c||"#000"; ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); },
+  DrawRect(x,y,w,h,c){ ctx.strokeStyle=c||"#000"; ctx.strokeRect(x,y,w,h); },
+  FillRect(x,y,w,h,c){ ctx.fillStyle=c||"#000"; ctx.fillRect(x,y,w,h); },
+  DrawLine(x1,y1,x2,y2,c){ ctx.strokeStyle=c||"#000"; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); },
+  DrawText(t,x,y,c){ ctx.fillStyle=c||"#000"; ctx.font="14px sans-serif"; ctx.fillText(t,x,y); },
+  SavePng(){ const a=document.createElement("a"); a.download="canvas.png"; a.href=cv.toDataURL("image/png"); a.click(); }
+};
+const __json = { serialize:o=>JSON.stringify(o), deserialize:s=>JSON.parse(s) };
+
+/* ================= 扩展白名单 ================= */
+const EXT = {
+  "System":{builtin:true,desc:"Console / 基础库"},
+  "System.IO":{builtin:true,desc:"虚拟文件系统"},
+  "Mini.Graphics":{builtin:true,desc:"Canvas 绘图"},
+  "Newtonsoft.Json":{installed:false,desc:"JSON 序列化"},
+  "SkiaSharp":{installed:false,desc:"绘图（映射 Canvas）"}
+};
+function ensureExt(ns){
+  const e = EXT[ns];
+  if(e && !e.builtin && !e.installed){ e.installed = true; printLine("[扩展] using "+ns+"; → 已从本地仓库加载："+e.desc,"ext"); renderExt(); }
+  else if(!e && !ns.startsWith("System")) printLine("[扩展] 未知命名空间 using "+ns+";（白名单未收录）","err");
+}
+function renderExt(){
+  document.getElementById("extHint").textContent =
+    Object.keys(EXT).filter(k=>EXT[k].builtin||EXT[k].installed).map(k=>k).join("\n");
+}
+
+/* ================= 控制台 ================= */
+const con = document.getElementById("console");
+function printLine(t,cls){
+  const d = document.createElement("div");
+  if(cls) d.className = cls;
+  d.textContent = t; con.appendChild(d); con.scrollTop = con.scrollHeight;
+}
+function clearConsole(){ con.innerHTML=""; }
+const __print = (...a)=>printLine(a.join(" "));
+const __write = (...a)=>printLine(a.join(" "));
+const __read  = ()=>prompt("Console.ReadLine()")||"";
+
+/* ================= 面板开关 ================= */
+function toggleSide(force){
+  const s = document.getElementById("side"), m = document.getElementById("mask");
+  const open = (force===undefined) ? !s.classList.contains("open") : force;
+  s.classList.toggle("open", open); m.classList.toggle("on", open);
+  document.getElementById("btnSide").classList.toggle("on", open);
+}
+function togglePane(name){
+  const panes = document.getElementById("panes");
+  const cur = ["console","gfx","files"].find(n=>document.getElementById("tab"+n[0].toUpperCase()+n.slice(1)).classList.contains("on"));
+  const already = panes.classList.contains("open") && cur === name;
+  ["console","gfx","files"].forEach(n=>{
+    document.getElementById("tab"+n[0].toUpperCase()+n.slice(1)).classList.toggle("on", n===name && !already);
+  });
+  if(already){ panes.classList.remove("open"); document.getElementById("btnPane").classList.remove("on"); return; }
+  document.getElementById("console").classList.toggle("on", name==="console");
+  document.getElementById("gfxPane").classList.toggle("on", name==="gfx");
+  document.getElementById("filesPane").classList.toggle("on", name==="files");
+  panes.classList.add("open");
+  document.getElementById("btnPane").classList.toggle("on", name==="console");
+  if(editor) setTimeout(()=>editor.layout(), 200);
+}
+function openConsole(){
+  if(!document.getElementById("panes").classList.contains("open") ||
+     !document.getElementById("tabConsole").classList.contains("on")){
+    const panes = document.getElementById("panes");
+    ["console","gfx","files"].forEach(n=>document.getElementById("tab"+n[0].toUpperCase()+n.slice(1)).classList.toggle("on", n==="console"));
+    document.getElementById("console").classList.add("on");
+    document.getElementById("gfxPane").classList.remove("on");
+    document.getElementById("filesPane").classList.remove("on");
+    panes.classList.add("open");
+    document.getElementById("btnPane").classList.add("on");
+  }
+  setTimeout(()=>{ if(editor) editor.layout(); }, 220);
+}
+function toggleDiag(){
+  const l = document.getElementById("diagList");
+  const show = l.style.display === "none";
+  l.style.display = show ? "block" : "none";
+  document.getElementById("diagTip").textContent = show ? "点击收起 ▴" : "点击展开 ▾";
+}
+
+/* ================= 诊断器（红线来源） ================= */
+const MEMBERS = {
+  Console:["WriteLine","Write","ReadLine","ReadKey","Clear","Beep"],
+  File:["WriteAllText","ReadAllText","Exists","Delete","AppendAllText","Copy","Move","ReadAllLines","WriteAllLines"],
+  Directory:["CreateDirectory","Exists","GetFiles","GetDirectories","Delete"],
+  JsonConvert:["SerializeObject","DeserializeObject"],
+  Canvas:["Clear","DrawCircle","FillCircle","DrawRect","FillRect","DrawLine","DrawText","SavePng"],
+  SKCanvas:["Clear","DrawCircle","FillCircle","DrawRect","FillRect","DrawLine","DrawText","SavePng"],
+  Convert:["ToInt32","ToString","ToDouble","ToBoolean"],
+  Math:["Abs","Max","Min","Sqrt","Pow","Round","Floor","Ceiling","Log"],
+  Random:["Next"],
+  Environment:["NewLine","Exit","GetEnvironmentVariable"]
+};
+const KNOWN_ROOTS = new Set(Object.keys(MEMBERS).concat(["String","StringBuilder","Array","List","Dictionary","Task","DateTime","Path","Encoding"]));
+const TYPO = { staitc:"static", vr:"var", esle:"else", reutrn:"return", pubic:"public",
+  stirng:"string", WirteLine:"WriteLine", WriteLne:"WriteLine", WriteLinee:"WriteLine",
+  Consol:"Console", Fiel:"File", WrtieLine:"WriteLine" };
+const CTRL_HEAD = /^(if|else|for|foreach|while|do|try|catch|finally|switch|case|default|namespace|using|#)/;
+const STMT_HEAD = /^(return|break|continue|throw|Console|File|Directory|Canvas|SKCanvas|JsonConvert)\b/;
+const SIG_RE = /^[\w\s\[\]<>,]*\([^;=]*\)\s*$/;
+
+let lastDiag = [];
+function diagnose(code){
+  const out = [], lines = code.split("\n");
+  const mk = (l,c1,c2,msg,sev)=>({ line:l, col:c1, endCol:c2, message:msg, severity:sev });
+  let brace = 0, paren = 0;
+  const defined = new Set();
+  code.replace(/static\s+[\w<>\[\]]+\s+(\w+)\s*\(/g, (m,n)=>{ defined.add(n); return m; });
+
+  lines.forEach((raw, i)=>{
+    const ln = i + 1;
+    const um = raw.match(/^\s*using\s+([\w\.]+)\s*;/);
+    if(um){
+      const ns = um[1];
+      if(!EXT[ns] && !ns.startsWith("System"))
+        out.push(mk(ln,1,raw.length+1,"未知命名空间 '"+ns+"'：白名单未收录，无法自动下载",8));
+      return;
+    }
+    // 未闭合字符串
+    const q = (raw.replace(/\\"/g,"").match(/"/g)||[]).length;
+    if(q % 2 === 1) out.push(mk(ln,1,raw.length+1,"字符串引号未闭合",8));
+
+    const bare = raw.replace(/\/\/.*$/,"").replace(/\$?"(?:[^"\\]|\\.)*"/g,'""');
+    // 括号
+    for(const ch of bare){
+      if(ch==="(") paren++;
+      else if(ch===")"){ paren--; if(paren<0){ out.push(mk(ln,1,raw.length+1,"多余的右括号 )",8)); paren=0; } }
+      else if(ch==="{") brace++;
+      else if(ch==="}"){ brace--; if(brace<0){ out.push(mk(ln,1,raw.length+1,"多余的右大括号 }",8)); brace=0; } }
+    }
+    // 拼错的关键字
+    let tm; const tre = /[A-Za-z_]\w*/g;
+    while((tm = tre.exec(raw))){
+      const w = tm[0];
+      if(TYPO[w]) out.push(mk(ln, tm.index+1, tm.index+w.length+1, "未知关键字 '"+w+"'，是否想输入 '"+TYPO[w]+"'？", 8));
+    }
+    // API / 成员检查
+    let m; const re = /([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*\(/g;
+    while((m = re.exec(raw))){
+      const root = m[1], mem = m[2];
+      if(!KNOWN_ROOTS.has(root) && !defined.has(root))
+        out.push(mk(ln, m.index+1, m.index+m[0].length+1, "未注册的 API 或类型 '"+root+"."+mem+"()'", 8));
+      else if(MEMBERS[root] && !MEMBERS[root].includes(mem))
+        out.push(mk(ln, m.index+1, m.index+m[0].length+1, "'"+root+"' 没有成员 '"+mem+"'（拼写错误？）", 8));
+    }
+    // 缺分号（提示级）：排除控制流头、块括号、方法/类签名头
+    const t = bare.trim();
+    if(t && !/[;{},\]]$/.test(t) && !/^[\)\}]/.test(t) && !CTRL_HEAD.test(t) && !STMT_HEAD.test(t)){
+      const words = t.split(/\s+/);
+      const isSigOrDecl = (!t.includes("=") && SIG_RE.test(t)) ||
+        (!t.includes("=") && !t.includes("(") && words.length >= 3 &&
+         /^(public|private|protected|internal|static|abstract|sealed|partial|class|struct|interface|enum)$/.test(words[0]));
+      if(!isSigOrDecl) out.push(mk(ln,1,raw.length+1,"语句可能缺少分号 ;", 4));
+    }
+  });
+  if(brace>0) out.push(mk(lines.length,1,(lines[lines.length-1]||"").length+1,"缺少 "+brace+" 个右大括号 }",8));
+  if(paren>0) out.push(mk(lines.length,1,(lines[lines.length-1]||"").length+1,"缺少 "+paren+" 个右括号 )",8));
+  return out;
+}
+function applyDiag(){
+  const code = getCode();
+  lastDiag = diagnose(code);
+  const errs = lastDiag.filter(d=>d.severity===8), warns = lastDiag.filter(d=>d.severity===4);
+  const dt = document.getElementById("diagText");
+  dt.innerHTML = errs.length ? '<span class="bad">✖ '+errs.length+' 个错误</span>' + (warns.length?' · <span class="warn">'+warns.length+' 警告</span>':'')
+              : (warns.length ? '<span class="warn">⚠ '+warns.length+' 个警告</span>' : '<span class="good">✔ 未发现问题</span>');
+  const list = document.getElementById("diagList");
+  list.innerHTML = lastDiag.length ? lastDiag.map(d=>{
+    const cls = d.severity===8 ? 'bad' : 'warn';
+    return '<div class="'+cls+'" data-line="'+d.line+'">行 '+d.line+'：'+d.message+'</div>';
+  }).join("") : '<div class="good">没有可报告的问题</div>';
+  Array.from(list.children || []).forEach(el=>{
+    el.style.cursor = "pointer";
+    el.onclick = ()=>gotoLine(parseInt(el.dataset.line,10));
+  });
+  if(editor){
+    monaco.editor.setModelMarkers(editor.getModel(), "csharp-mini", lastDiag.map(d=>({
+      severity: d.severity, message: d.message,
+      startLineNumber: d.line, startColumn: d.col,
+      endLineNumber: d.line, endColumn: d.endCol
+    })));
+  } else renderFallbackHighlight(code, lastDiag);
+}
+function gotoLine(n){
+  if(editor){ editor.revealLineInCenter(n); editor.setPosition({lineNumber:n,column:1}); editor.focus(); }
+  else{
+    const ta = document.getElementById("codeArea");
+    const pos = ta.value.split("\n").slice(0,n-1).reduce((a,l)=>a+l.length+1,0);
+    ta.focus(); ta.setSelectionRange(pos,pos);
+    ta.scrollTop = Math.max(0,(n-6)*22); syncScroll();
+  }
+}
+
+/* ================= 转译 ================= */
+function extractMain(src){
+  const m = src.match(/static\s+(?:void|int|async\s+Task|Task)\s+Main\s*\(([^)]*)\)\s*\{/);
+  if(!m) return null;
+  const start = src.indexOf("{", m.index + m[0].length - 1);
+  let depth = 0, end = -1;
+  for(let i = start; i < src.length; i++){
+    if(src[i]==="{") depth++;
+    else if(src[i]==="}"){ depth--; if(depth===0){ end=i; break; } }
+  }
+  return end === -1 ? null : src.substring(start+1, end);
+}
+function transpile(src){
+  const usings = [];
+  const s = src.replace(/^\s*using\s+([\w\.]+)\s*;\s*$/gm, (m,ns)=>{ usings.push(ns); return ""; });
+  let js = extractMain(s) ?? s;
+  js = js.replace(/\b(int|string|double|bool|var)\s+(\w+)\s*=/g, "let $2 =");
+  js = js.replace(/\b(int|string|double|bool|var)\s+(\w+)\s*;/g, "let $2;");
+  js = js.replace(/for\s*\(\s*(?:int|var)\s+(\w+)/g, "for (let $1");
+  js = js.replace(/new\s*\{([^}]*)\}/g, (m,inner)=>"{"+inner.replace(/(\w+)\s*=/g,"$1:")+"}");
+  js = js.replace(/Console\.WriteLine\s*\(/g,"__print(");
+  js = js.replace(/Console\.Write\s*\(/g,"__write(");
+  js = js.replace(/Console\.ReadLine\s*\(\s*\)/g,"__read()");
+  js = js.replace(/File\.WriteAllText\s*\(/g,"__fs.write(");
+  js = js.replace(/File\.ReadAllText\s*\(/g,"__fs.read(");
+  js = js.replace(/File\.Exists\s*\(/g,"__fs.exists(");
+  js = js.replace(/File\.Delete\s*\(/g,"__fs.remove(");
+  js = js.replace(/Directory\.CreateDirectory\s*\(/g,"__fs.mkdir(");
+  js = js.replace(/JsonConvert\.SerializeObject\s*\(/g,"__json.serialize(");
+  js = js.replace(/JsonConvert\.DeserializeObject\s*\(/g,"__json.deserialize(");
+  js = js.replace(/\b(?:Canvas|SKCanvas)\.(\w+)\s*\(/g,"__gfx.$1(");
+  js = js.replace(/\$"((?:[^"\\]|\\.)*)"/g, (m,inner)=>"`"+inner.replace(/\{(\w+(?:\.\w+)*)\}/g,"${$1}")+"`");
+  return { js, usings };
+}
+function run(){
+  clearConsole();
+  openConsole();
+  const { js, usings } = transpile(getCode());
+  usings.forEach(ensureExt);
+  try{
+    new Function("__print","__write","__read","__fs","__gfx","__json", js)(__print,__write,__read,__fs,__gfx,__json);
+  }catch(e){ printLine("✖ 编译/运行错误: " + e.message, "err"); }
+}
+
+/* ================= 文件树 ================= */
+let currentFile = null;
+function renderFiles(){
+  const box = document.getElementById("fileList");
+  box.innerHTML = "";
+  __fs.list().forEach(name=>{
+    const d = document.createElement("div");
+    d.className = "file" + (name===currentFile ? " active" : "");
+    d.textContent = name;
+    d.onclick = ()=>{ currentFile = name; setCode(__fs.read(name)); renderFiles();
+      document.getElementById("fsHint").textContent = "已打开：" + name;
+      toggleSide(false); applyDiag(); };
+    box.appendChild(d);
+  });
+}
+function newFile(){ const n = prompt("新文件名（如 a.cs）"); if(!n) return; __fs.write(n,""); currentFile = n; setCode(""); renderFiles(); applyDiag(); }
+function saveFile(){ const n = currentFile || prompt("保存到文件名"); if(!n) return;
+  __fs.write(n, getCode()); currentFile = n; renderFiles();
+  document.getElementById("fsHint").textContent = "已保存：" + n; }
+function delFile(){ if(!currentFile) return;
+  if(confirm("删除 "+currentFile+" ?")){ __fs.remove(currentFile); currentFile=null; setCode(""); renderFiles(); applyDiag(); } }
+
+/* ================= 编辑器 ================= */
+let editor = null;
+function getCode(){ return editor ? editor.getValue() : document.getElementById("codeArea").value; }
+function setCode(v){ if(editor) editor.setValue(v); else { document.getElementById("codeArea").value = v; renderFallbackHighlight(v, lastDiag); } }
+function syncScroll(){ const ta = document.getElementById("codeArea"); document.getElementById("hl").scrollTop = ta.scrollTop; }
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function renderFallbackHighlight(code, diags){
+  const errL = new Set(diags.filter(d=>d.severity===8).map(d=>d.line));
+  const warL = new Set(diags.filter(d=>d.severity===4).map(d=>d.line));
+  document.getElementById("hl").innerHTML = code.split("\n").map((l,i)=>{
+    const n = i+1;
+    const cls = errL.has(n) ? "eline" : (warL.has(n) ? "wline" : "");
+    return '<span class="'+cls+'">'+esc(l)+"\n</span>";
+  }).join("");
+  syncScroll();
+}
+
+/* ---- 代码片段：输入 cw 等自动补齐 ---- */
+const SNIPPETS = [
+  { label:"cw",      detail:"Console.WriteLine()",        text:"Console.WriteLine($0);" },
+  { label:"cwl",     detail:"Console.WriteLine()",        text:"Console.WriteLine($0);" },
+  { label:"cwln",    detail:"Console.WriteLine()",        text:"Console.WriteLine($0);" },
+  { label:"read",    detail:"Console.ReadLine()",         text:"Console.ReadLine()" },
+  { label:"main",    detail:"static void Main()",         text:"static void Main() {\n\t$0\n}" },
+  { label:"cls",     detail:"class",                      text:"class $1 {\n\t$0\n}" },
+  { label:"meth",    detail:"static void 方法",            text:"static void $1() {\n\t$0\n}" },
+  { label:"if",      detail:"if 语句",                     text:"if ($1) {\n\t$0\n}" },
+  { label:"else",    detail:"else",                        text:"else {\n\t$0\n}" },
+  { label:"for",     detail:"for 循环",                    text:"for (int $1 = 0; $1 < $2; $1++) {\n\t$0\n}" },
+  { label:"foreach", detail:"foreach 循环",                text:"foreach (var $1 in $2) {\n\t$0\n}" },
+  { label:"while",   detail:"while 循环",                  text:"while ($1) {\n\t$0\n}" },
+  { label:"try",     detail:"try / catch",                 text:"try {\n\t$0\n} catch (Exception $1) {\n\t\n}" },
+  { label:"wr",      detail:"File.WriteAllText()",         text:"File.WriteAllText(\"$1\", $0);" },
+  { label:"rd",      detail:"File.ReadAllText()",          text:"File.ReadAllText(\"$1\")" },
+  { label:"json",    detail:"JsonConvert.SerializeObject", text:"JsonConvert.SerializeObject($0)" },
+  { label:"jsond",   detail:"JsonConvert.DeserializeObject", text:"JsonConvert.DeserializeObject($0)" },
+  { label:"cc",      detail:"Canvas.Clear()",              text:"Canvas.Clear(\"$0\");" },
+  { label:"fc",      detail:"Canvas.FillCircle()",         text:"Canvas.FillCircle($1, $2, $3, \"$4\");" },
+  { label:"dc",      detail:"Canvas.DrawCircle()",         text:"Canvas.DrawCircle($1, $2, $3, \"$4\");" },
+  { label:"rect",    detail:"Canvas.FillRect()",           text:"Canvas.FillRect($1, $2, $3, $4, \"$5\");" },
+  { label:"line",    detail:"Canvas.DrawLine()",           text:"Canvas.DrawLine($1, $2, $3, $4, \"$5\");" },
+  { label:"text",    detail:"Canvas.DrawText()",           text:"Canvas.DrawText(\"$1\", $2, $3, \"$4\");" },
+  { label:"png",     detail:"Canvas.SavePng()",            text:"Canvas.SavePng();" },
+  { label:"usingj",  detail:"using Newtonsoft.Json;",      text:"using Newtonsoft.Json;" },
+  { label:"usings",  detail:"using SkiaSharp;",            text:"using SkiaSharp;" }
+];
+
+function initMonaco(){
+  if(typeof require !== "function" || typeof require.config !== "function"){ fallbackEditor(); return; }
+  require.config({ paths:{ vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs" }});
+  require(["vs/editor/editor.main"], ()=>{
+    monaco.languages.registerCompletionItemProvider("csharp", {
+      triggerCharacters: [],
+      provideCompletionItems: (model, position)=>{
+        const word = model.getWordUntilPosition(position);
+        const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+                        startColumn: word.startColumn, endColumn: word.endColumn };
+        return { suggestions: SNIPPETS.map(s=>({
+          label: s.label, kind: monaco.languages.CompletionItemKind.Snippet,
+          detail: s.detail, documentation: s.text,
+          insertText: s.text,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          range: range
+        }))};
+      }
+    });
+    editor = monaco.editor.create(document.getElementById("monaco"), {
+      value: getCode() || DEFAULT_CODE,
+      language: "csharp", theme: "vs-dark",
+      minimap:{ enabled:false }, automaticLayout:true, fontSize:14,
+      scrollBeyondLastLine:false, quickSuggestions:true,
+      suggestOnTriggerCharacters:true, acceptSuggestionOnEnter:"on",
+      tabCompletion:"on", wordBasedSuggestions:"currentDocument"
+    });
+    editor.onDidChangeModelContent(()=>{ clearTimeout(window.__dt); window.__dt = setTimeout(applyDiag, 350); });
+    document.getElementById("hl").style.display = "none";
+    applyDiag();
+  }, ()=>fallbackEditor());
+}
+function fallbackEditor(){
+  document.getElementById("monaco").style.display = "none";
+  document.getElementById("hl").style.display = "block";
+  const ta = document.getElementById("codeArea");
+  ta.style.display = "block";
+  ta.value = ta.value || DEFAULT_CODE;
+  ta.addEventListener("input", ()=>{ clearTimeout(window.__dt); window.__dt = setTimeout(applyDiag, 350); });
+  ta.addEventListener("scroll", syncScroll);
+  applyDiag();
+}
+
+/* ================= 装到桌面（PWA / 快捷方式） ================= */
+let deferredPrompt = null;
+window.addEventListener && window.addEventListener("beforeinstallprompt", e=>{
+  e.preventDefault(); deferredPrompt = e;
+  printLine("[PWA] 检测到可安装，点顶部『📲 装桌面』即可一键安装", "ext");
+});
+window.addEventListener && window.addEventListener("appinstalled", ()=>{
+  printLine("[PWA] 已成功添加到桌面 🎉", "ext");
+});
+function isStandalone(){
+  try{
+    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  }catch(e){ return false; }
+}
+function isLocalFile(){
+  try{ return location.protocol === "file:" || location.protocol === "content:"; }catch(e){ return false; }
+}
+function installGuide(){
+  if(isLocalFile()){
+    alert("现在是用【本地文件】打开的（地址以 file:// 开头），" +
+          "这种情况下浏览器会禁用安装能力：\n" +
+          "· Chrome 菜单里不会出现『安装应用』\n" +
+          "· manifest.json / sw.js 也不会生效\n" +
+          "这是浏览器安全规则，不是设置问题。\n\n" +
+          "想要桌面图标 + 全屏 + 离线，必须让它跑在一个 https 网址上。\n" +
+          "（详见控制台的『本地文件模式』提示）");
+    return;
+  }
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice && deferredPrompt.userChoice.then(r=>{
+      printLine(r.outcome === "accepted" ? "[PWA] 已添加到桌面 🎉" : "[PWA] 已取消安装", "ext");
+      deferredPrompt = null;
+    });
+    return;
+  }
+  if(isStandalone()){ alert("你已经在用桌面图标的全屏模式了 ✅"); return; }
+  alert("把本页装到桌面的方法：\n" +
+        "\n【华为 / 鸿蒙浏览器】菜单 → 添加到桌面\n" +
+        "【Chrome】菜单 → 安装应用 / 添加到主屏幕\n" +
+        "【Edge】菜单 → 应用 → 安装此站点\n" +
+        "【iOS Safari】分享 → 添加到主屏幕\n" +
+        "\n提示：如果菜单里没有『安装』只有『添加书签』，" +
+        "说明当前是用本地文件打开的，需要先把它放到一个 https 网址上，" +
+        "浏览器才会给出真正的独立图标 + 全屏 + 离线。");
+}
+
+/* ================= 启动 ================= */
+document.getElementById("codeArea").value = DEFAULT_CODE;
+if(!FS["Program.cs"]){ FS["Program.cs"] = DEFAULT_CODE; fsSave(); }
+currentFile = "Program.cs";
+renderFiles(); renderExt();
+setTimeout(initMonaco, 300);
+setTimeout(()=>{ if(!editor) fallbackEditor(); }, 4000);
+// 若同目录放了 sw.js（且是 https / localhost 打开），注册离线缓存
+try{
+  if("serviceWorker" in navigator && !isLocalFile()){
+    navigator.serviceWorker.register("sw.js").then(()=>{
+      printLine("[PWA] 离线缓存已启用，断网也能打开（Monaco 需至少成功加载过一次）", "ext");
+    }).catch(()=>{});
+  } else if(isLocalFile()){
+    printLine("[本地文件模式] 地址是 file://，浏览器会禁用安装/离线/文件持久化。", "err");
+    printLine("编辑器仍可正常使用；想要桌面图标请看『📲 装桌面』里的说明。", "err");
+  }
+}catch(e){}
+</script>
+</body>
+</html>
